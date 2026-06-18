@@ -8,6 +8,9 @@
 class Estoque;
 class Financeiro;
 class GerenciadorReposicao;
+class CentralDeVendas;     // [OBSERVER] sujeito que avisa os setores
+class EstoqueObserver;     // [OBSERVER] setor estoque ouvindo vendas
+class FinanceiroObserver;  // [OBSERVER] setor financeiro ouvindo vendas
 
 
 struct ItemPedido {
@@ -27,6 +30,13 @@ private:
     std::unique_ptr<Estoque>              estoque;      // setor de estoque
     std::unique_ptr<Financeiro>           financeiro;   // setor financeiro / caixa
     std::unique_ptr<GerenciadorReposicao> reposicoes;   // setor de compras (reposicao)
+
+    // [OBSERVER] central de vendas + os observadores dos dois setores.
+    // A ordem de declaracao importa: estoque/financeiro vem ANTES dos
+    // observadores, pois os observadores recebem um ponteiro para eles.
+    std::unique_ptr<CentralDeVendas>    central;
+    std::unique_ptr<EstoqueObserver>    estoqueObs;
+    std::unique_ptr<FinanceiroObserver> financeiroObs;
 
     int proximoPedido = 1;              // numero do proximo pedido do site
 

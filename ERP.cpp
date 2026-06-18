@@ -5,6 +5,13 @@
 #include "Estoque.h"
 #include "Financeiro.h"
 #include "Reposicao.h"
+#include "Produto.h"
+
+// [OBSERVER] cabecalhos da central e dos observadores
+#include "CentralDeVendas.h"
+#include "EstoqueObserver.h"
+#include "FinanceiroObserver.h"
+#include "Venda.h"
 
 // =====================================================================
 //  ERP.cpp  -  implementacao da Facade
@@ -19,7 +26,18 @@
 ERP::ERP()
     : estoque(std::make_unique<Estoque>()),
       financeiro(std::make_unique<Financeiro>()),
-      reposicoes(std::make_unique<GerenciadorReposicao>()) {}
+      reposicoes(std::make_unique<GerenciadorReposicao>()),
+      // [OBSERVER] cria a central e os dois observadores. Cada observador
+      // recebe um ponteiro "cru" (.get()) para o setor que vai atualizar.
+      central(std::make_unique<CentralDeVendas>()),
+      estoqueObs(std::make_unique<EstoqueObserver>(estoque.get())),
+      financeiroObs(std::make_unique<FinanceiroObserver>(financeiro.get())) {
+
+    // [OBSERVER] inscreve os dois setores na central de vendas. A partir
+    // daqui, toda venda notificada avisa estoque e financeiro sozinhos.
+    central->inscrever(estoqueObs.get());
+    central->inscrever(financeiroObs.get());
+}
 
 
 ERP::~ERP() = default;
@@ -58,59 +76,52 @@ void ERP::registrarPedido(const std::vector<ItemPedido>& itens) {
 
         // 2) Nao ha estoque suficiente -> recusa o item.
         if (!estoque->temDisponibilidade(id, qtd)) {
-            std::cout << "\n  Item " << (i + 1) << ": " << p->nome << "\n";
+            std::cout << "\n  Item " << (i + 1) << ": " << p->getNome() << "\n";
             std::cout << "    [VENDA RECUSADA] solicitado " << qtd
-                      << ", disponivel " << p->quantidade << "\n";
+                      << ", disponivel " << p->getQuantidade() << "\n";
             continue;
         }
 
         // 3) Venda aceita.
-        int antes = p->quantidade;
-        double totalItem = qtd * p->precoVenda;
+        double totalItem = qtd * p->getPrecoVenda();
         totalDoPedido += totalItem;
 
         std::cout << "\n  Item " << (i + 1) << ": " << p->descricao()
                   << " x" << qtd << " = R$ " << totalItem << "\n";
 
         // -------------------------------------------------------------
-        // [OBSERVER] (padrao COMPORTAMENTAL - a ser adicionado depois)
-        // Aqui o ERP avisa "na mao" cada setor sobre a venda: primeiro o
-        // estoque, depois o financeiro. Com o padrao Observer, a venda
-        // seria um EVENTO e os setores (Estoque, Financeiro) seriam
-        // OBSERVADORES inscritos que reagem sozinhos quando o evento
-        // acontece - o ERP nao precisaria chamar cada um manualmente.
-        // Isso desacopla os setores (eles nao dependem uns dos outros).
+        // [OBSERVER] em acao.
+        // Em vez de o ERP chamar estoque e financeiro "na mao", ele so
+        // monta o EVENTO de venda e manda a CentralDeVendas notificar.
+        // A central avisa os observadores inscritos (EstoqueObserver e
+        // FinanceiroObserver) e cada um reage sozinho: o estoque da
+        // baixa e o financeiro registra a receita. O ERP nao precisa
+        // saber quem esta inscrito nem o que cada setor faz.
         // -------------------------------------------------------------
+        Venda venda;
+        venda.produto      = p;
+        venda.quantidade   = qtd;
+        venda.total        = totalItem;
+        venda.numeroPedido = numeroPedido;
 
-        // ---- avisa o ESTOQUE (da baixa) ----
-        estoque->baixar(id, qtd);
-        std::cout << "    [Estoque]    " << p->nome << ": "
-                  << antes << " -> " << p->quantidade << " un";
-        if (p->quantidade <= p->estoqueMinimo)
-            std::cout << "  (ATENCAO: no minimo!)";
-        std::cout << "\n";
-
-        // ---- avisa o FINANCEIRO (registra receita) ----
-        financeiro->registrarReceita("Venda #" + std::to_string(numeroPedido)
-                                    + " - " + p->nome, totalItem);
-        std::cout << "    [Financeiro] receita: +R$ " << totalItem << "\n";
+        central->notificar(venda);  // estoque e financeiro reagem aqui
 
         // 4) Se o estoque ficou no minimo (ou abaixo), o setor de
         //    compras gera uma reposicao automatica e ela ja' chega.
-        if (p->quantidade <= p->estoqueMinimo) {
-            Reposicao r = reposicoes->gerar(id, p->nome, QTD_REPOSICAO, p->precoCusto);
+        if (p->getQuantidade() <= p->getEstoqueMinimo()) {
+            Reposicao r = reposicoes->gerar(id, p->getNome(), QTD_REPOSICAO, p->getPrecoCusto());
             estoque->repor(id, QTD_REPOSICAO);  // a mercadoria chega e repoe o estoque
 
             std::cout << "\n    [COMPRAS] Reposicao automatica gerada (Pedido #"
                       << r.id << ")\n";
-            std::cout << "      Produto    : " << p->nome << "\n";
+            std::cout << "      Produto    : " << p->getNome() << "\n";
             std::cout << "      Quantidade : " << r.quantidade << " un\n";
             std::cout << "      Custo      : R$ " << r.custoTotal << "\n";
-            std::cout << "      Estoque    : reposto para " << p->quantidade << " un\n";
+            std::cout << "      Estoque    : reposto para " << p->getQuantidade() << " un\n";
 
             // A reposicao e' uma despesa para o financeiro.
             financeiro->registrarDespesa("Reposicao #" + std::to_string(r.id)
-                                        + " - " + p->nome, r.custoTotal);
+                                        + " - " + p->getNome(), r.custoTotal);
             std::cout << "      [Financeiro] despesa: -R$ " << r.custoTotal << "\n";
         }
     }
