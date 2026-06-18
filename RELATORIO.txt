@@ -1,0 +1,264 @@
+========================================================================
+ RELATORIO - ERP PARA EMPRESAS DE VAREJO
+========================================================================
+
+------------------------------------------------------------------------
+ 1. OBJETIVO
+------------------------------------------------------------------------
+Sistema de console (em C++) que simula o nucleo de um ERP de uma loja de
+varejo online. Ele recebe pedidos do site, controla o estoque, registra o
+caixa (receitas e despesas) e gera reposicoes automaticas quando um
+produto chega ao estoque minimo. O foco do projeto e demonstrar a
+aplicacao de tres padroes de projeto trabalhando juntos: Facade, Observer
+e Factory Method.
+
+------------------------------------------------------------------------
+ 2. ESTRUTURA DOS ARQUIVOS
+------------------------------------------------------------------------
+  main.cpp ............... Menu de texto; unica parte que fala com o usuario
+  ERP.* ................. Fachada - coordena todos os subsistemas
+  Estoque.* ............. Setor de estoque (produtos, baixa, reposicao)
+  Financeiro.* .......... Setor financeiro (movimentacoes e saldo)
+  Reposicao.* ........... Setor de compras (gera pedidos de reposicao)
+  Produto.* ............. Classe base abstrata de produto
+  ProdutoComum/Eletronico/Perecivel.* ... Tipos concretos de produto
+  ProdutoFactory.* ...... Fabrica que cria o produto certo
+  CentralDeVendas.* ..... Central que notifica as vendas (Subject)
+  ObservadorVenda.h ..... Interface dos observadores
+  Venda.h ............... Evento de venda enviado aos observadores
+  EstoqueObserver.* ..... Reage a venda dando baixa no estoque
+  FinanceiroObserver.* .. Reage a venda registrando a receita
+  ReposicaoObserver.* ... Reage a venda gerando reposicao se necessario
+
+------------------------------------------------------------------------
+ 3. OS TRES PADROES DE PROJETO
+------------------------------------------------------------------------
+
+3.1 FACADE (Fachada) - classe ERP
+A classe ERP e a "porta de entrada" do sistema. O main.cpp conhece APENAS
+o ERP e chama quatro metodos simples (registrarPedido, consultarEstoque,
+verReposicoes, verCaixa). Toda a complexidade de coordenar Estoque,
+Financeiro e Compras fica escondida dentro da fachada.
+Beneficio: o cliente nao precisa saber como os subsistemas funcionam nem
+em que ordem chama-los.
+
+3.2 OBSERVER (Observador) - vendas notificam os setores
+Quando uma venda acontece, varios setores precisam reagir. Em vez de o ERP
+chamar cada um "na mao", ele monta um objeto Venda (o evento) e manda a
+CentralDeVendas notificar. A central avisa todos os observadores
+inscritos, e cada um reage sozinho:
+  - EstoqueObserver    -> da baixa nas unidades;
+  - FinanceiroObserver -> registra a receita;
+  - ReposicaoObserver  -> se o estoque ficou no minimo, gera a reposicao
+                          e lanca a despesa.
+Beneficio: desacoplamento - para adicionar um novo setor que reaja a
+vendas, basta criar um observador e inscreve-lo, SEM alterar o resto do
+codigo (principio Aberto/Fechado do SOLID).
+Detalhe importante: a ordem de inscricao importa - o estoque da baixa
+ANTES de a reposicao verificar se chegou ao minimo.
+
+3.3 FACTORY METHOD (Fabrica) - criacao de produtos
+Produto e uma classe abstrata (tem getTipo() como metodo virtual puro).
+Cada tipo concreto - ProdutoComum, ProdutoEletronico (com garantia) e
+ProdutoPerecivel (com validade) - e uma subclasse. A ProdutoFactory
+centraliza a criacao: quem precisa de um produto chama
+ProdutoFactory::criarEletronico(...) e recebe um Produto* pronto, SEM
+conhecer a subclasse concreta.
+Beneficio: para adicionar um novo tipo de produto, cria-se uma nova
+subclasse e um metodo na fabrica, sem mexer no estoque nem no resto.
+
+------------------------------------------------------------------------
+ 4. FLUXO DE UM PEDIDO (passo a passo)
+------------------------------------------------------------------------
+Para cada item do pedido:
+  1. Busca o produto pelo ID. Se nao existe -> ignora.
+  2. Verifica disponibilidade. Se falta estoque -> recusa o item.
+  3. Venda aceita: calcula o total e monta o evento Venda.
+  4. Chama central->notificar(venda). Os tres observers reagem em
+     sequencia (baixa, receita e - se necessario - reposicao).
+  5. Ao final, imprime o resumo do pedido (total vendido e saldo do caixa).
+
+------------------------------------------------------------------------
+ 5. GERENCIAMENTO DE MEMORIA
+------------------------------------------------------------------------
+  - O ERP e dono dos subsistemas e observadores via std::unique_ptr
+    (liberacao automatica).
+  - O Estoque e dono dos produtos e os libera no destrutor.
+  - Os observadores guardam apenas ponteiros de referencia aos setores
+    (nao sao donos), evitando liberacao dupla.
+
+------------------------------------------------------------------------
+ 6. COMO COMPILAR E EXECUTAR
+------------------------------------------------------------------------
+Pre-requisito: ter o compilador g++ (MinGW/MSYS2) instalado e no PATH.
+
+No VS Code:
+  Abra a pasta do projeto e pressione Ctrl + Shift + B. Ele compila e
+  roda no terminal integrado.
+
+Pela linha de comando (dentro da pasta do projeto):
+  g++ -std=c++14 *.cpp -o erp.exe
+  ./erp.exe
+
+O g++ expande o *.cpp sozinho, entao pega todos os arquivos
+automaticamente. O resultado e o executavel erp.exe, que roda em qualquer
+Windows sem precisar instalar nada (so para COMPILAR o codigo-fonte e que
+o g++ e necessario).
+
+------------------------------------------------------------------------
+ 7. DIAGRAMA DE CLASSES (explicacao)
+------------------------------------------------------------------------
+O diagrama de classes mostra as tres partes do sistema e como elas se
+conectam:
+
+(a) Fachada no topo:
+    ERP esta no centro e e composto (losango cheio = composicao, ou seja,
+    "e dono e gerencia o ciclo de vida") por Estoque, Financeiro,
+    GerenciadorReposicao, CentralDeVendas e pelos tres observers.
+
+(b) Bloco do Observer (direita/centro):
+    CentralDeVendas agrega (losango vazio = agregacao, "usa mas nao e
+    dono") a interface ObservadorVenda. Os tres observers concretos
+    (EstoqueObserver, FinanceiroObserver, ReposicaoObserver) implementam
+    a interface (linha tracejada com triangulo). Cada observer DEPENDE
+    (seta tracejada) do setor que atualiza.
+
+(c) Bloco do Factory (esquerda/baixo):
+    Produto e uma classe abstrata (estereotipo <<abstract>>) com os dados
+    comuns e o metodo virtual puro getTipo(). ProdutoComum,
+    ProdutoEletronico (garantiaMeses) e ProdutoPerecivel (validade)
+    herdam de Produto (linha cheia com triangulo). ProdutoFactory depende
+    de Produto, pois cria as subclasses. O Estoque agrega Produto, pois
+    guarda a lista de produtos.
+
+Legenda das setas:
+    *--   composicao (o ERP e dono - cria e destroi)
+    o--   agregacao (usa, mas nao e dono)
+    <|--  heranca de classe (linha cheia)
+    <|..  implementacao de interface (linha tracejada)
+    ..>   dependencia (usa via ponteiro)
+
+Observacao: o diagrama e simplificado. Na implementacao real, o
+ReposicaoObserver usa tres setores (Estoque, Financeiro e
+GerenciadorReposicao), mas o diagrama destaca apenas a ligacao principal
+com o GerenciadorReposicao para nao poluir a visualizacao.
+
+------------------------------------------------------------------------
+ 8. CODIGO DO DIAGRAMA (PlantUML)
+------------------------------------------------------------------------
+@startuml
+skinparam classAttributeIconSize 0
+title Diagrama de Classes - ERP Varejo
+
+class ERP {
+  - estoque : Estoque
+  - financeiro : Financeiro
+  - reposicoes : GerenciadorReposicao
+  - central : CentralDeVendas
+  + registrarPedido(itens)
+  + consultarEstoque()
+  + verReposicoes()
+  + verCaixa()
+}
+
+class Estoque {
+  - produtos : vector<Produto*>
+  + buscar(id) : Produto*
+  + temDisponibilidade(id, qtd) : bool
+  + baixar(id, qtd)
+  + repor(id, qtd)
+  + listar()
+}
+
+class Financeiro {
+  + registrarReceita(desc, valor)
+  + registrarDespesa(desc, valor)
+  + saldo() : double
+  + relatorio()
+}
+
+class GerenciadorReposicao {
+  + gerar(...) : Reposicao
+  + listar()
+}
+
+interface ObservadorVenda {
+  + {abstract} atualizar(venda)
+}
+
+class CentralDeVendas {
+  - observadores : vector<ObservadorVenda*>
+  + inscrever(obs)
+  + notificar(venda)
+}
+
+class EstoqueObserver {
+  + atualizar(venda)
+}
+class FinanceiroObserver {
+  + atualizar(venda)
+}
+class ReposicaoObserver {
+  + atualizar(venda)
+}
+
+abstract class Produto {
+  # id : int
+  # nome : string
+  # precoVenda : double
+  # quantidade : int
+  + {abstract} getTipo() : string
+  + descricao() : string
+}
+
+class ProdutoComum {
+  + getTipo() : string
+}
+class ProdutoEletronico {
+  - garantiaMeses : int
+  + getTipo() : string
+}
+class ProdutoPerecivel {
+  - validade : string
+  + getTipo() : string
+}
+
+class ProdutoFactory {
+  + {static} criarComum(...) : Produto*
+  + {static} criarEletronico(...) : Produto*
+  + {static} criarPerecivel(...) : Produto*
+}
+
+ERP *-- Estoque
+ERP *-- Financeiro
+ERP *-- GerenciadorReposicao
+ERP *-- CentralDeVendas
+ERP *-- EstoqueObserver
+ERP *-- FinanceiroObserver
+ERP *-- ReposicaoObserver
+
+ObservadorVenda <|.. EstoqueObserver
+ObservadorVenda <|.. FinanceiroObserver
+ObservadorVenda <|.. ReposicaoObserver
+CentralDeVendas o-- ObservadorVenda
+
+EstoqueObserver ..> Estoque
+FinanceiroObserver ..> Financeiro
+ReposicaoObserver ..> GerenciadorReposicao
+
+Produto <|-- ProdutoComum
+Produto <|-- ProdutoEletronico
+Produto <|-- ProdutoPerecivel
+ProdutoFactory ..> Produto
+Estoque o-- Produto
+@enduml
+
+------------------------------------------------------------------------
+ 9. CONCLUSAO
+------------------------------------------------------------------------
+O projeto demonstra tres padroes de projeto cooperando: Facade simplifica
+o uso do sistema, Observer desacopla os setores que reagem a uma venda, e
+Factory Method organiza a criacao dos tipos de produto. A arquitetura e
+extensivel (novos produtos ou setores entram sem alterar o codigo
+existente) e segura quanto a memoria (uso de ponteiros inteligentes).
+========================================================================
