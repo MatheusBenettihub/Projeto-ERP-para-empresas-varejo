@@ -32,8 +32,6 @@ ERP::~ERP() = default;
 //                    cao, se necessario);
 //    3. GerenciadorReposicao - gera pedido de compra quando o estoque
 //                    fica no minimo.
-//  O main.cpp entrega os itens e recebe o resultado impresso na tela,
-//  sem precisar conhecer nenhum dos tres subsistemas.
 // ---------------------------------------------------------------------
 void ERP::registrarPedido(const std::vector<ItemPedido>& itens) {
     int numeroPedido = proximoPedido++;
@@ -124,17 +122,17 @@ void ERP::registrarPedido(const std::vector<ItemPedido>& itens) {
     std::cout << "  ==========================================\n";
 }
 
-// Opcao 2 [Facade]: delega para o subsistema Estoque imprimir sua tabela.
+// Opcao 2 delega para o subsistema Estoque imprimir sua tabela.
 void ERP::consultarEstoque() {
     estoque->listar();
 }
 
-// Opcao 3 [Facade]: delega para o subsistema GerenciadorReposicao listar os pedidos.
+// Opcao 3 delega para o subsistema GerenciadorReposicao listar os pedidos.
 void ERP::verReposicoes() {
     reposicoes->listar();
 }
 
-// Opcao 4 [Facade]: delega para o subsistema Financeiro imprimir o caixa.
+// Opcao 4 delega para o subsistema Financeiro imprimir o caixa.
 void ERP::verCaixa() {
     financeiro->relatorio();
 }

@@ -17,7 +17,7 @@ struct ItemPedido {
 
 // =====================================================================
 //  FACADE aplicado:
-//  Esta classe e' a "fachada" do sistema. Ela unifica tres subsistemas
+//  Esta classe e a "fachada" do sistema. Ela unifica tres subsistemas
 //  independentes (Estoque, Financeiro e GerenciadorReposicao) atras de
 //  uma interface simples de quatro metodos. O cliente (main.cpp) NUNCA
 //  acessa os subsistemas diretamente - toda interacao passa pelo ERP.

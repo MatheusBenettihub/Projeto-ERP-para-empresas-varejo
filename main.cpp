@@ -23,8 +23,8 @@ int main() {
     // (a configuracao vale para todas as impressoes seguintes)
     std::cout << std::fixed << std::setprecision(2);
 
-    // [FACADE] ERP e' a fachada do sistema. O main cria apenas esta
-    // instancia e chama seus metodos publicos - nunca acessa Estoque,
+    // [FACADE] ERP e a fachada do sistema. O main cria apenas esta
+    // instancia e chama seus metodos publicos, nunca acessa Estoque,
     // Financeiro ou GerenciadorReposicao diretamente. Toda a coordenacao
     // entre subsistemas esta encapsulada dentro da classe ERP.
     ERP erp;          // cria o sistema (ja' vem com os produtos no estoque)

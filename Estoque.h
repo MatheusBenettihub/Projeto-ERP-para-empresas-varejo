@@ -14,11 +14,12 @@
 // =====================================================================
 class Estoque {
 private:
-    std::vector<Produto> produtos;  // todos os produtos da loja
+    std::vector<Produto*> produtos;  // todos os produtos da loja
 
 public:
     // O construtor ja cadastra os produtos iniciais da loja (seed).
     Estoque();
+    ~Estoque();
 
     // Procura um produto pelo ID. Retorna o endereco do produto
     // encontrado ou nullptr se nao existir.
