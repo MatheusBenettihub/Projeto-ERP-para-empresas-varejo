@@ -1,4 +1,5 @@
 #include "Estoque.h"
+#include "ProdutoFactory.h"
 #include <iostream>
 
 // Construtor do Estoque: cadastra os produtos iniciais da loja.
@@ -9,18 +10,24 @@
 // certa ja pronta. Mantemos os dados aqui para ficar facil de trocar.
 Estoque::Estoque() {
     //                 id, nome,                tipo,         custo,  venda,  qtd, minimo
-    produtos.push_back(Produto(1, "Celular Samsung",   "Eletronico",  800.0, 1200.0, 10, 2));
-    produtos.push_back(Produto(2, "Perfume Importado", "Perecivel",   120.0,  280.0,  5, 3));
-    produtos.push_back(Produto(3, "Caderno",           "Comum",         8.0,   18.0, 30, 5));
-    produtos.push_back(Produto(4, "Fone Bluetooth",    "Eletronico",   90.0,  200.0,  4, 2));
-    produtos.push_back(Produto(5, "Chocolate",         "Perecivel",     5.0,   12.0,  8, 4));
+    produtos.push_back(ProdutoFactory::criarEletronico(1, "Celular Samsung", 800.0, 1200.0, 10, 2, 12));
+    produtos.push_back(ProdutoFactory::criarPerecivel(2, "Perfume Importado", 120.0,  280.0,  5, 3, "16/06/2027"));
+    produtos.push_back(ProdutoFactory::criarComum(3, "Caderno", 8.0,   18.0, 30, 5));
+    produtos.push_back(ProdutoFactory::criarEletronico(4, "Fone Bluetooth", 90.0,  200.0,  4, 2, 12));
+    produtos.push_back(ProdutoFactory::criarPerecivel(5, "Chocolate",  5.0,   12.0,  8, 4, "22/06/2026"));
+}
+
+Estoque::~Estoque(){
+    for(Produto* p : produtos){
+        delete p;
+    }
 }
 
 // Percorre a lista procurando o produto com o ID pedido.
 Produto* Estoque::buscar(int id) {
-    for (Produto& p : produtos) {
-        if (p.id == id) {
-            return &p;  // devolve o endereco para quem chamou poder alterar
+    for (Produto* p : produtos) {
+        if (p->getId() == id) {
+            return p;  // devolve o endereco para quem chamou poder alterar
         }
     }
     return nullptr;     // nao encontrou
@@ -30,14 +37,14 @@ Produto* Estoque::buscar(int id) {
 bool Estoque::temDisponibilidade(int id, int qtd) {
     Produto* p = buscar(id);
     if (p == nullptr) return false;     // produto nem existe
-    return p->quantidade >= qtd;        // tem o suficiente?
+    return p->getQuantidade() >= qtd;        // tem o suficiente?
 }
 
 // Diminui o estoque (venda).
 void Estoque::baixar(int id, int qtd) {
     Produto* p = buscar(id);
     if (p != nullptr) {
-        p->quantidade -= qtd;
+        p->setQuantidade(p->getQuantidade() - qtd);
     }
 }
 
@@ -45,7 +52,7 @@ void Estoque::baixar(int id, int qtd) {
 void Estoque::repor(int id, int qtd) {
     Produto* p = buscar(id);
     if (p != nullptr) {
-        p->quantidade += qtd;
+        p->setQuantidade(p->getQuantidade() + qtd);
     }
 }
 
@@ -54,16 +61,16 @@ void Estoque::listar() {
     std::cout << "\n  ================ ESTOQUE =================\n";
     std::cout << "  ID  | Produto             | Qtd | Min | Status\n";
     std::cout << "  ----|---------------------|-----|-----|--------\n";
-    for (Produto& p : produtos) {
+    for (Produto* p : produtos) {
         // Decide o status a partir da quantidade atual.
         std::string status;
-        if (p.quantidade == 0)               status = "ZERADO";
-        else if (p.quantidade <= p.estoqueMinimo) status = "BAIXO";
+        if (p->getQuantidade() == 0)               status = "ZERADO";
+        else if (p->getQuantidade() <= p->getEstoqueMinimo()) status = "BAIXO";
         else                                 status = "OK";
 
         // printf deixa as colunas alinhadas de forma simples.
         printf("  %-3d | %-19s | %3d | %3d | %s\n",
-               p.id, p.nome.c_str(), p.quantidade, p.estoqueMinimo, status.c_str());
+               p->getId(), p->getNome().c_str(), p->getQuantidade(), p->getEstoqueMinimo(), status.c_str());
     }
     std::cout << "  ==========================================\n";
 }
